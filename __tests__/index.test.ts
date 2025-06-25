@@ -43,4 +43,36 @@ describe("GlucoseSyncBridge", () => {
     expect(Array.isArray(readings)).toBeTruthy();
     expect(readings.length).toBeGreaterThan(0);
   });
+
+  test("should support streaming on Android", () => {
+    expect(bridge.isStreamingSupported()).toBeTruthy();
+  });
+
+  test("should start and stop glucose streaming", async () => {
+    await bridge.initialize();
+
+    const streamOptions = {
+      enableXDripStream: true,
+      enableLibreLinkStream: true,
+      minInterval: 30000,
+      onReading: jest.fn(),
+      onError: jest.fn(),
+    };
+
+    const started = await bridge.startGlucoseStream(streamOptions);
+    expect(started).toBeTruthy();
+
+    const stopped = await bridge.stopGlucoseStream();
+    expect(stopped).toBeTruthy();
+  });
+  test("should handle LibreLink source data correctly", async () => {
+    await bridge.initialize();
+    const reading = await bridge.getLatestGlucoseReading();
+    
+    // The mock data includes LibreLink source
+    expect(reading).not.toBeNull();
+    expect(reading?.metadata?.dataOrigin).toBe("com.freestylelibre.app");
+    expect(reading?.value).toBeDefined();
+    expect(reading?.unit).toBeDefined();
+  });
 });

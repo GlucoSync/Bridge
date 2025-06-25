@@ -6,12 +6,22 @@ A cross-platform TypeScript library for accessing blood glucose data from Apple 
 
 ## Features
 
-- Unified API for accessing blood glucose data across iOS and Android
-- TypeScript support with full type definitions
-- Comprehensive error handling
-- Unit conversion (mg/dL ↔ mmol/L)
-- Works with Expo (bare workflow/EAS)
-- Supports real-time data access through button-triggered refreshes
+- ✅ **Unified API** for accessing blood glucose data across iOS and Android
+- ✅ **TypeScript support** with full type definitions
+- ✅ **Real-time streaming** from xDrip+ and LibreLink (Android)
+- ✅ **Historical data** fetching with date ranges
+- ✅ **Unit conversion** (mg/dL ↔ mmol/L)
+- ✅ **Multi-source support**: HealthKit, Health Connect, xDrip+, LibreLink
+- ✅ **Comprehensive error handling**
+- ✅ **Battery-optimized** background processing
+- ✅ **Works with Expo** (bare workflow/EAS)
+
+### Real-time Streaming (Android)
+
+- **xDrip+ Inter-App Broadcasts**: Receive real-time CGM data from xDrip+, Diabox, Glimp
+- **LibreLink Integration**: Access official LibreLink readings through Health Connect
+- **Multiple Sources**: Combine data from different apps with deduplication
+- **Trend Information**: Get glucose direction, slope, and raw sensor values
 
 ### Dependencies
 
@@ -94,6 +104,41 @@ const customGlucoseSync = new GlucoseSyncBridge({
 
 // Use the custom instance
 const readings = await customGlucoseSync.getGlucoseReadings();
+```
+
+### Real-time Streaming (Android Only)
+
+```typescript
+import { GlucoseSyncBridge, GlucoseUnit } from "@glucosync/bridge";
+
+const bridge = new GlucoseSyncBridge({
+  defaultUnit: GlucoseUnit.MGDL,
+});
+
+// Check if streaming is supported
+if (bridge.isStreamingSupported()) {
+  await bridge.startGlucoseStream({
+    enableXDripStream: true,      // xDrip+ broadcasts
+    enableLibreLinkStream: true,  // LibreLink via Health Connect
+    minInterval: 60000,           // 1 minute minimum between readings
+    
+    onReading: (reading) => {
+      console.log(`${reading.value} ${reading.unit} from ${reading.source}`);
+      
+      // Handle real-time glucose data
+      if (reading.source === 'xDrip+') {
+        console.log('Trend:', reading.metadata?.direction);
+      }
+    },
+    
+    onError: (error) => {
+      console.error('Streaming error:', error.message);
+    }
+  });
+}
+
+// Stop streaming
+await bridge.stopGlucoseStream();
 ```
 
 ## API Reference

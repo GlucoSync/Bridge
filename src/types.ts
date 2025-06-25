@@ -116,6 +116,41 @@ export interface GlucoseFetchOptions {
 }
 
 /**
+ * Callback function for real-time glucose readings
+ */
+export type GlucoseStreamCallback = (reading: GlucoseReading) => void;
+
+/**
+ * Options for configuring real-time glucose streaming
+ */
+export interface GlucoseStreamOptions {
+  /**
+   * Enable xDrip+ Inter-App broadcasts (Android only)
+   */
+  enableXDripStream?: boolean;
+
+  /**
+   * Enable LibreLink streaming through Health Connect (Android only)
+   */
+  enableLibreLinkStream?: boolean;
+
+  /**
+   * Callback for new glucose readings
+   */
+  onReading?: GlucoseStreamCallback;
+
+  /**
+   * Callback for stream errors
+   */
+  onError?: (error: Error) => void;
+
+  /**
+   * Minimum interval between readings in milliseconds (default: 60000 = 1 minute)
+   */
+  minInterval?: number;
+}
+
+/**
  * Interface for platform-specific bridge implementations
  */
 export interface PlatformBridge {
@@ -124,4 +159,9 @@ export interface PlatformBridge {
   getAuthorizationStatus(): Promise<AuthorizationStatus>;
   getLatestGlucoseReading(): Promise<GlucoseReading | null>;
   getGlucoseReadings(options: GlucoseFetchOptions): Promise<GlucoseReading[]>;
+
+  // Real-time streaming methods (optional, platform-specific)
+  startGlucoseStream?(options: GlucoseStreamOptions): Promise<boolean>;
+  stopGlucoseStream?(): Promise<boolean>;
+  isStreamingSupported?(): boolean;
 }

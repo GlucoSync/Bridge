@@ -8,7 +8,7 @@
  * @author Afonso Pereira
  * @license Proprietary
  */
-import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus } from "./types";
+import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, GlucoseStreamOptions } from "./types";
 /**
  * GlucoseSyncBridge - Main class for interfacing with health platforms
  *
@@ -58,6 +58,25 @@ export declare class GlucoseSyncBridge {
      * @returns Promise that resolves to an array of glucose readings
      */
     getGlucoseReadings(options?: GlucoseFetchOptions): Promise<GlucoseReading[]>;
+    /**
+     * Check if real-time glucose streaming is supported on current platform
+     *
+     * @returns True if streaming is supported, false otherwise
+     */
+    isStreamingSupported(): boolean;
+    /**
+     * Start real-time glucose streaming (Android only - xDrip+ and LibreLink support)
+     *
+     * @param options Streaming configuration options
+     * @returns Promise that resolves when streaming starts successfully
+     */
+    startGlucoseStream(options: GlucoseStreamOptions): Promise<boolean>;
+    /**
+     * Stop real-time glucose streaming
+     *
+     * @returns Promise that resolves when streaming stops successfully
+     */
+    stopGlucoseStream(): Promise<boolean>;
     /**
      * Gets platform name
      *

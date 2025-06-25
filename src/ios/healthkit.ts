@@ -14,6 +14,7 @@ import {
   GlucoseUnit,
   AuthorizationStatus,
   PlatformBridge,
+  GlucoseStreamOptions,
 } from "../types";
 import { convertDate, formatISODate } from "../utils/date";
 import { convertGlucoseValue } from "../utils/units";
@@ -242,5 +243,31 @@ export class IOSHealthKitBridge implements PlatformBridge {
       readingType: reading.metadata?.HKBloodGlucoseMealTime ? "meal" : "manual",
       metadata: reading.metadata || {},
     };
+  }
+
+  /**
+   * Check if real-time glucose streaming is supported on iOS
+   * Currently not supported, but may be added in future versions
+   */
+  isStreamingSupported(): boolean {
+    return false; // iOS HealthKit doesn't support real-time streaming like Android
+  }
+
+  /**
+   * Start real-time glucose streaming (not supported on iOS)
+   */
+  async startGlucoseStream(options: GlucoseStreamOptions): Promise<boolean> {
+    throw new Error(
+      "Real-time glucose streaming is not supported on iOS HealthKit"
+    );
+  }
+
+  /**
+   * Stop real-time glucose streaming (not supported on iOS)
+   */
+  async stopGlucoseStream(): Promise<boolean> {
+    throw new Error(
+      "Real-time glucose streaming is not supported on iOS HealthKit"
+    );
   }
 }

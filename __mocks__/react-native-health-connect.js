@@ -10,7 +10,7 @@ module.exports = {
   readRecords: jest.fn().mockResolvedValue({
     records: [
       {
-        metadata: { id: "test-1" },
+        metadata: { id: "test-1", dataOrigin: "com.freestylelibre.app" },
         level: { inMilligramsPerDeciliter: 120, inMillimolesPerLiter: 6.7 },
         time: "2025-01-01T12:00:00.000Z",
         specimenSource: 1, // capillary_blood

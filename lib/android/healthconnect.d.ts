@@ -1,11 +1,17 @@
 /**
  * Android Health Connect implementation for GlucoSync Bridge
+ * Includes support for LibreLink data and xDrip+ Inter-App streaming
  */
-import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, PlatformBridge } from "../types";
+import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, PlatformBridge, GlucoseStreamOptions } from "../types";
 export declare class AndroidHealthConnectBridge implements PlatformBridge {
     private options;
     private initialized;
     private permissions;
+    private isStreaming;
+    private streamOptions?;
+    private xdripEventEmitter?;
+    private lastReadingTimestamp?;
+    private streamPollingInterval?;
     constructor(options: GlucoseSyncOptions);
     /**
      * Initialize Health Connect
@@ -31,4 +37,40 @@ export declare class AndroidHealthConnectBridge implements PlatformBridge {
      * Maps a Health Connect reading to our standard GlucoseReading format
      */
     private mapHealthConnectReadingToGlucoseReading;
+    /**
+     * Check if real-time glucose streaming is supported on this platform
+     */
+    isStreamingSupported(): boolean;
+    /**
+     * Start real-time glucose streaming from multiple sources
+     */
+    startGlucoseStream(options: GlucoseStreamOptions): Promise<boolean>;
+    /**
+     * Stop real-time glucose streaming
+     */
+    stopGlucoseStream(): Promise<boolean>;
+    /**
+     * Start xDrip+ Inter-App broadcast receiver
+     */
+    private startXDripStream;
+    /**
+     * Stop xDrip+ Inter-App broadcast receiver
+     */
+    private stopXDripStream;
+    /**
+     * Handle incoming xDrip+ glucose reading
+     */
+    private handleXDripReading;
+    /**
+     * Start Health Connect polling for LibreLink data
+     */
+    private startHealthConnectPolling;
+    /**
+     * Stop Health Connect polling
+     */
+    private stopHealthConnectPolling;
+    /**
+     * Poll Health Connect for new glucose readings
+     */
+    private pollHealthConnectForNewReadings;
 }

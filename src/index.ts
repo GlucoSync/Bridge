@@ -16,6 +16,7 @@ import {
   GlucoseFetchOptions,
   GlucoseUnit,
   AuthorizationStatus,
+  GlucoseStreamOptions,
 } from "./types";
 import { isIOS, isAndroid } from "./platform";
 import { IOSHealthKitBridge } from "./ios/healthkit";
@@ -131,6 +132,52 @@ export class GlucoseSyncBridge {
   ): Promise<GlucoseReading[]> {
     this.ensureInitialized();
     return await this.bridge!.getGlucoseReadings(options);
+  }
+
+  /**
+   * Check if real-time glucose streaming is supported on current platform
+   *
+   * @returns True if streaming is supported, false otherwise
+   */
+  isStreamingSupported(): boolean {
+    if (!this.bridge) {
+      return false;
+    }
+
+    return this.bridge.isStreamingSupported
+      ? this.bridge.isStreamingSupported()
+      : false;
+  }
+
+  /**
+   * Start real-time glucose streaming (Android only - xDrip+ and LibreLink support)
+   *
+   * @param options Streaming configuration options
+   * @returns Promise that resolves when streaming starts successfully
+   */
+  async startGlucoseStream(options: GlucoseStreamOptions): Promise<boolean> {
+    this.ensureInitialized();
+
+    if (!this.bridge!.startGlucoseStream) {
+      throw new Error("Glucose streaming is not supported on this platform");
+    }
+
+    return await this.bridge!.startGlucoseStream(options);
+  }
+
+  /**
+   * Stop real-time glucose streaming
+   *
+   * @returns Promise that resolves when streaming stops successfully
+   */
+  async stopGlucoseStream(): Promise<boolean> {
+    this.ensureInitialized();
+
+    if (!this.bridge!.stopGlucoseStream) {
+      throw new Error("Glucose streaming is not supported on this platform");
+    }
+
+    return await this.bridge!.stopGlucoseStream();
   }
 
   /**

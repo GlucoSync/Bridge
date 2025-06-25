@@ -1,7 +1,7 @@
 /**
  * iOS HealthKit implementation for GlucoSync Bridge
  */
-import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, PlatformBridge } from "../types";
+import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, PlatformBridge, GlucoseStreamOptions } from "../types";
 export declare class IOSHealthKitBridge implements PlatformBridge {
     private options;
     private initialized;
@@ -31,4 +31,17 @@ export declare class IOSHealthKitBridge implements PlatformBridge {
      * Maps a HealthKit reading to our standard GlucoseReading format
      */
     private mapHealthKitReadingToGlucoseReading;
+    /**
+     * Check if real-time glucose streaming is supported on iOS
+     * Currently not supported, but may be added in future versions
+     */
+    isStreamingSupported(): boolean;
+    /**
+     * Start real-time glucose streaming (not supported on iOS)
+     */
+    startGlucoseStream(options: GlucoseStreamOptions): Promise<boolean>;
+    /**
+     * Stop real-time glucose streaming (not supported on iOS)
+     */
+    stopGlucoseStream(): Promise<boolean>;
 }
