@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Bluetooth Glucose Meter Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        h1, h2 {
+            margin-top: 0;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            background: #007cba;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        
+        .status.supported {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.not-supported {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .device {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+        }
+        
+        .device.connected {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        .readings {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f9f9f9;
+        }
+        
+        .reading {
+            border-bottom: 1px solid #eee;
+            padding: 5px 0;
+        }
+        
+        .logs {
+            background: #000;
+            color: #0f0;
+            font-family: monospace;
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        
+        .log-error { color: #ff6b6b; }
+        .log-success { color: #51cf66; }
+        .log-warning { color: #ffd43b; }
+        .log-info { color: #74c0fc; }
+        
+        label {
+            display: block;
+            margin: 10px 0;
+        }
+        
+        input[type="checkbox"] {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Bluetooth Glucose Meter Test</h1>
+    
+    <div class="section">
+        <h2>System Check</h2>
+        <div id="bluetooth-status" class="status">
+            Checking Bluetooth support...
+        </div>
+        <div id="security-status" class="status">
+            Checking security context...
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Settings</h2>
+        <label>
+            <input type="checkbox" id="debug-mode"> Enable Debug Mode
+        </label>
+    </div>
+    
+    <div class="section">
+        <h2>Device Control</h2>
+        <button id="scan-btn">Scan for Glucose Meters</button>
+        <button id="clear-devices-btn">Clear Devices</button>
+        
+        <div id="devices-container">
+            <p>No devices found. Click "Scan for Glucose Meters" to start.</p>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Glucose Readings</h2>
+        <button id="clear-readings-btn">Clear Readings</button>
+        <button id="export-readings-btn">Export JSON</button>
+        <span>Total: <strong id="readings-count">0</strong></span>
+        
+        <div id="readings-container" class="readings">
+            <p>No readings available.</p>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Debug Logs</h2>
+        <button id="clear-logs-btn">Clear Logs</button>
+        
+        <div id="logs-container" class="logs">
+            <div>[00:00:00] Simple Bluetooth test initialized</div>
+        </div>
+    </div>
+
+    <script>
+        class SimpleBluetoothTest {
+            constructor() {
+                this.devices = new Map();
+                this.readings = [];
+                this.isScanning = false;
+                
+                this.init();
+            }
+            
+            init() {
+                this.checkSupport();
+                this.setupEventListeners();
+                this.log('Simple Bluetooth test initialized', 'info');
+            }
+            
+            checkSupport() {
+                // Check Web Bluetooth support
+                const bluetoothSupported = 'bluetooth' in navigator;
+                const bluetoothStatus = document.getElementById('bluetooth-status');
+                bluetoothStatus.textContent = bluetoothSupported ? 
+                    'Web Bluetooth API: Supported ✓' : 
+                    'Web Bluetooth API: Not Supported ✗';
+                bluetoothStatus.className = `status ${bluetoothSupported ? 'supported' : 'not-supported'}`;
+                
+                // Check secure context
+                const secureContext = window.isSecureContext;
+                const securityStatus = document.getElementById('security-status');
+                securityStatus.textContent = secureContext ? 
+                    'Secure Context (HTTPS): Yes ✓' : 
+                    'Secure Context (HTTPS): No ✗ - HTTPS required for Bluetooth';
+                securityStatus.className = `status ${secureContext ? 'supported' : 'not-supported'}`;
+                
+                if (!bluetoothSupported) {
+                    this.log('Web Bluetooth not supported. Use Chrome/Edge with HTTPS.', 'error');
+                }
+                
+                if (!secureContext) {
+                    this.log('HTTPS required. Use https://localhost or deploy to HTTPS server.', 'warning');
+                }
+            }
+            
+            setupEventListeners() {
+                document.getElementById('scan-btn').addEventListener('click', () => this.scanForDevices());
+                document.getElementById('clear-devices-btn').addEventListener('click', () => this.clearDevices());
+                document.getElementById('clear-readings-btn').addEventListener('click', () => this.clearReadings());
+                document.getElementById('export-readings-btn').addEventListener('click', () => this.exportReadings());
+                document.getElementById('clear-logs-btn').addEventListener('click', () => this.clearLogs());
+            }
+            
+            async scanForDevices() {
+                if (this.isScanning) return;
+                
+                if (!('bluetooth' in navigator)) {
+                    this.log('Web Bluetooth not supported', 'error');
+                    return;
+                }
+                
+                this.isScanning = true;
+                const scanBtn = document.getElementById('scan-btn');
+                scanBtn.disabled = true;
+                scanBtn.textContent = 'Scanning...';
+                
+                try {
+                    this.log('Starting Bluetooth scan for glucose meters...', 'info');
+                    
+                    const device = await navigator.bluetooth.requestDevice({
+                        filters: [
+                            { services: ['00001808-0000-1000-8000-00805f9b34fb'] }, // Glucose Service
+                            { namePrefix: 'Accu-Chek' },
+                            { namePrefix: 'FreeStyle' },
+                            { namePrefix: 'OneTouch' },
+                            { namePrefix: 'Contour' },
+                            { namePrefix: 'Bayer' },
+                            { namePrefix: 'Abbott' }
+                        ],
+                        optionalServices: [
+                            '0000180a-0000-1000-8000-00805f9b34fb', // Device Information
+                            '0000180f-0000-1000-8000-00805f9b34fb'  // Battery Service
+                        ]
+                    });
+                    
+                    const glucoseMeter = {
+                        id: device.id,
+                        name: device.name || 'Unknown Device',
+                        connectionState: 'disconnected',
+                        bluetoothDevice: device
+                    };
+                    
+                    this.devices.set(device.id, glucoseMeter);
+                    this.updateDevicesUI();
+                    this.log(`Found device: ${glucoseMeter.name} (${glucoseMeter.id})`, 'success');
+                    
+                } catch (error) {
+                    this.log(`Scan failed: ${error.message}`, 'error');
+                } finally {
+                    this.isScanning = false;
+                    scanBtn.disabled = false;
+                    scanBtn.textContent = 'Scan for Glucose Meters';
+                }
+            }
+            
+            async connectDevice(deviceId) {
+                const device = this.devices.get(deviceId);
+                if (!device) return;
+                
+                try {
+                    this.log(`Connecting to ${device.name}...`, 'info');
+                    device.connectionState = 'connecting';
+                    this.updateDevicesUI();
+                    
+                    const server = await device.bluetoothDevice.gatt.connect();
+                    device.gattServer = server;
+                    device.connectionState = 'connected';
+                    
+                    this.log(`Connected to ${device.name}`, 'success');
+                    
+                    // Get device information
+                    await this.getDeviceInfo(device);
+                    
+                    this.updateDevicesUI();
+                    
+                } catch (error) {
+                    device.connectionState = 'disconnected';
+                    this.log(`Connection failed: ${error.message}`, 'error');
+                    this.updateDevicesUI();
+                }
+            }
+            
+            async getDeviceInfo(device) {
+                if (!device.gattServer) return;
+                
+                try {
+                    const deviceInfoService = await device.gattServer.getPrimaryService('0000180a-0000-1000-8000-00805f9b34fb');
+                    
+                    try {
+                        const manufacturerChar = await deviceInfoService.getCharacteristic('00002a29-0000-1000-8000-00805f9b34fb');
+                        const manufacturerValue = await manufacturerChar.readValue();
+                        device.manufacturer = new TextDecoder().decode(manufacturerValue);
+                        this.log(`Manufacturer: ${device.manufacturer}`, 'info');
+                    } catch (e) {
+                        this.log('Could not read manufacturer', 'warning');
+                    }
+                    
+                    try {
+                        const modelChar = await deviceInfoService.getCharacteristic('00002a24-0000-1000-8000-00805f9b34fb');
+                        const modelValue = await modelChar.readValue();
+                        device.model = new TextDecoder().decode(modelValue);
+                        this.log(`Model: ${device.model}`, 'info');
+                    } catch (e) {
+                        this.log('Could not read model', 'warning');
+                    }
+                    
+                } catch (e) {
+                    this.log('Device information service not available', 'warning');
+                }
+                
+                // Check glucose service
+                try {
+                    const glucoseService = await device.gattServer.getPrimaryService('00001808-0000-1000-8000-00805f9b34fb');
+                    this.log('Glucose service found ✓', 'success');
+                    
+                    const characteristics = await glucoseService.getCharacteristics();
+                    this.log(`Found ${characteristics.length} glucose characteristics`, 'info');
+                    
+                    if (this.isDebugMode()) {
+                        for (const char of characteristics) {
+                            this.log(`  - ${char.uuid}`, 'info');
+                        }
+                    }
+                } catch (e) {
+                    this.log('Glucose service not available', 'warning');
+                }
+            }
+            
+            async syncDevice(deviceId) {
+                const device = this.devices.get(deviceId);
+                if (!device || device.connectionState !== 'connected') {
+                    this.log('Device not connected', 'error');
+                    return;
+                }
+                
+                try {
+                    this.log(`Syncing data from ${device.name}...`, 'info');
+                    const readings = await this.syncGlucoseData(device);
+                    
+                    if (readings && readings.length > 0) {
+                        this.readings.push(...readings);
+                        this.updateReadingsUI();
+                        this.log(`Synced ${readings.length} readings`, 'success');
+                        
+                        const latest = readings[readings.length - 1];
+                        this.log(`Latest: ${latest.value} ${latest.unit} at ${new Date(latest.timestamp).toLocaleString()}`, 'info');
+                    } else {
+                        this.log('No readings found', 'warning');
+                    }
+                    
+                } catch (error) {
+                    this.log(`Sync failed: ${error.message}`, 'error');
+                }
+            }
+            
+            async syncGlucoseData(device) {
+                const debugMode = this.isDebugMode();
+                const readings = [];
+                
+                try {
+                    if (debugMode) this.log('Getting glucose service...', 'info');
+                    const glucoseService = await device.gattServer.getPrimaryService('00001808-0000-1000-8000-00805f9b34fb');
+                    
+                    if (debugMode) this.log('Getting characteristics...', 'info');
+                    const glucoseMeasurement = await glucoseService.getCharacteristic('00002a18-0000-1000-8000-00805f9b34fb');
+                    const recordAccessControlPoint = await glucoseService.getCharacteristic('00002a52-0000-1000-8000-00805f9b34fb');
+                    
+                    if (debugMode) this.log('Enabling notifications...', 'info');
+                    await glucoseMeasurement.startNotifications();
+                    await recordAccessControlPoint.startNotifications();
+                    
+                    const measurementPromise = new Promise((resolve) => {
+                        const receivedReadings = [];
+                        let isComplete = false;
+                        
+                        const handleMeasurement = (event) => {
+                            const value = event.target.value;
+                            
+                            if (debugMode) {
+                                const bytes = Array.from(new Uint8Array(value.buffer))
+                                    .map(b => b.toString(16).padStart(2, '0')).join(' ');
+                                this.log(`Raw data: ${bytes}`, 'info');
+                            }
+                            
+                            const reading = this.parseGlucoseMeasurement(value);
+                            if (reading) {
+                                receivedReadings.push(reading);
+                                if (debugMode) this.log(`Parsed: ${reading.value} ${reading.unit}`, 'success');
+                            }
+                        };
+                        
+                        const handleRACPResponse = (event) => {
+                            const value = event.target.value;
+                            const opCode = value.getUint8(0);
+                            
+                            if (debugMode) {
+                                const bytes = Array.from(new Uint8Array(value.buffer))
+                                    .map(b => b.toString(16).padStart(2, '0')).join(' ');
+                                this.log(`RACP response: ${bytes}`, 'info');
+                            }
+                            
+                            if (opCode === 0x06) { // Response Code
+                                const requestOpCode = value.getUint8(2);
+                                const responseCode = value.getUint8(3);
+                                
+                                if (requestOpCode === 0x01 && responseCode === 0x01) {
+                                    if (debugMode) this.log('RACP operation completed', 'success');
+                                    setTimeout(() => {
+                                        if (!isComplete) {
+                                            isComplete = true;
+                                            resolve(receivedReadings);
+                                        }
+                                    }, 1000);
+                                }
+                            }
+                        };
+                        
+                        glucoseMeasurement.addEventListener('characteristicvaluechanged', handleMeasurement);
+                        recordAccessControlPoint.addEventListener('characteristicvaluechanged', handleRACPResponse);
+                        
+                        setTimeout(() => {
+                            if (!isComplete) {
+                                isComplete = true;
+                                glucoseMeasurement.removeEventListener('characteristicvaluechanged', handleMeasurement);
+                                recordAccessControlPoint.removeEventListener('characteristicvaluechanged', handleRACPResponse);
+                                if (debugMode) this.log('Sync timeout', 'warning');
+                                resolve(receivedReadings);
+                            }
+                        }, 15000);
+                    });
+                    
+                    if (debugMode) this.log('Requesting stored records...', 'info');
+                    const racpCommand = new Uint8Array([0x01, 0x01]); // Report all stored records
+                    await recordAccessControlPoint.writeValueWithResponse(racpCommand);
+                    
+                    const receivedReadings = await measurementPromise;
+                    
+                    await glucoseMeasurement.stopNotifications();
+                    await recordAccessControlPoint.stopNotifications();
+                    
+                    receivedReadings.forEach(reading => {
+                        reading.source = device.name || 'Bluetooth Glucose Meter';
+                        reading.metadata = {
+                            ...reading.metadata,
+                            deviceId: device.id
+                        };
+                    });
+                    
+                    return receivedReadings;
+                    
+                } catch (error) {
+                    throw new Error(`Failed to sync glucose data: ${error.message}`);
+                }
+            }
+            
+            parseGlucoseMeasurement(dataView) {
+                try {
+                    const flags = dataView.getUint8(0);
+                    const seqNum = dataView.getUint16(1, true);
+                    
+                    // Parse timestamp
+                    const year = dataView.getUint16(3, true);
+                    const month = dataView.getUint8(5);
+                    const day = dataView.getUint8(6);
+                    const hours = dataView.getUint8(7);
+                    const minutes = dataView.getUint8(8);
+                    const seconds = dataView.getUint8(9);
+                    
+                    const timestamp = new Date(year, month - 1, day, hours, minutes, seconds).toISOString();
+                    
+                    let offset = 10;
+                    
+                    // Handle time offset if present
+                    if (flags & 0x01) {
+                        offset += 2;
+                    }
+                    
+                    // Parse glucose concentration if present
+                    if (flags & 0x02) {
+                        const isMMOL = flags & 0x04;
+                        const unit = isMMOL ? "mmol/L" : "mg/dL";
+                        
+                        const glucoseRaw = dataView.getUint16(offset, true);
+                        let glucoseValue = this.parseSFLOAT(glucoseRaw);
+                        
+                        // Convert units
+                        if (!isMMOL) {
+                            glucoseValue = glucoseValue * 100000; // kg/L to mg/dL
+                        } else {
+                            glucoseValue = glucoseValue * 1000; // mol/L to mmol/L
+                        }
+                        
+                        const typeAndLocation = dataView.getUint8(offset + 2);
+                        const type = (typeAndLocation >> 4) & 0x0F;
+                        const location = typeAndLocation & 0x0F;
+                        
+                        return {
+                            id: `glucose-${seqNum}-${Date.now()}`,
+                            value: Math.round(glucoseValue * 10) / 10,
+                            unit: unit,
+                            timestamp: timestamp,
+                            readingType: this.getGlucoseType(type),
+                            metadata: {
+                                sequenceNumber: seqNum,
+                                type: type,
+                                location: this.getGlucoseLocation(location),
+                                flags: flags
+                            }
+                        };
+                    }
+                    
+                    return null;
+                } catch (error) {
+                    console.error('Error parsing glucose measurement:', error);
+                    return null;
+                }
+            }
+            
+            parseSFLOAT(value) {
+                // Handle special values
+                if (value === 0x07FF || value === 0x0800 || value === 0x0801) {
+                    return NaN;
+                }
+                if (value === 0x07FE) return Number.POSITIVE_INFINITY;
+                if (value === 0x0802) return Number.NEGATIVE_INFINITY;
+                
+                let exponent = (value >> 12) & 0x0F;
+                let mantissa = value & 0x0FFF;
+                
+                // Handle negative exponent
+                if (exponent >= 0x0008) {
+                    exponent = -((0x000F + 1) - exponent);
+                }
+                
+                // Handle negative mantissa
+                if (mantissa >= 0x0800) {
+                    mantissa = -((0x0FFF + 1) - mantissa);
+                }
+                
+                return mantissa * Math.pow(10, exponent);
+            }
+            
+            getGlucoseType(type) {
+                const types = {
+                    1: 'capillary_whole_blood',
+                    2: 'capillary_plasma',
+                    3: 'venous_whole_blood',
+                    4: 'venous_plasma',
+                    9: 'interstitial_fluid',
+                    10: 'control_solution'
+                };
+                return types[type] || 'unknown';
+            }
+            
+            getGlucoseLocation(location) {
+                const locations = {
+                    1: 'finger',
+                    2: 'alternate_site_test',
+                    3: 'earlobe',
+                    4: 'control_solution',
+                    15: 'not_available'
+                };
+                return locations[location] || 'unknown';
+            }
+            
+            async disconnectDevice(deviceId) {
+                const device = this.devices.get(deviceId);
+                if (!device) return;
+                
+                try {
+                    if (device.gattServer && device.gattServer.connected) {
+                        device.gattServer.disconnect();
+                    }
+                    device.connectionState = 'disconnected';
+                    this.updateDevicesUI();
+                    this.log(`Disconnected ${device.name}`, 'info');
+                } catch (error) {
+                    this.log(`Disconnect failed: ${error.message}`, 'error');
+                }
+            }
+            
+            updateDevicesUI() {
+                const container = document.getElementById('devices-container');
+                
+                if (this.devices.size === 0) {
+                    container.innerHTML = '<p>No devices found. Click "Scan for Glucose Meters" to start.</p>';
+                    return;
+                }
+                
+                let html = '';
+                for (const device of this.devices.values()) {
+                    const statusClass = device.connectionState === 'connected' ? 'connected' : '';
+                    html += `
+                        <div class="device ${statusClass}">
+                            <strong>${device.name}</strong><br>
+                            Status: ${device.connectionState}<br>
+                            ID: ${device.id}<br>
+                            ${device.manufacturer ? `Manufacturer: ${device.manufacturer}<br>` : ''}
+                            ${device.model ? `Model: ${device.model}<br>` : ''}
+                            <br>
+                            <button onclick="app.connectDevice('${device.id}')" 
+                                    ${device.connectionState === 'connected' ? 'disabled' : ''}>
+                                Connect
+                            </button>
+                            <button onclick="app.syncDevice('${device.id}')" 
+                                    ${device.connectionState !== 'connected' ? 'disabled' : ''}>
+                                Sync Data
+                            </button>
+                            <button onclick="app.disconnectDevice('${device.id}')" 
+                                    ${device.connectionState !== 'connected' ? 'disabled' : ''}>
+                                Disconnect
+                            </button>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+            }
+            
+            updateReadingsUI() {
+                const container = document.getElementById('readings-container');
+                const countElement = document.getElementById('readings-count');
+                
+                countElement.textContent = this.readings.length;
+                
+                if (this.readings.length === 0) {
+                    container.innerHTML = '<p>No readings available.</p>';
+                    return;
+                }
+                
+                let html = '';
+                this.readings.slice(-50).reverse().forEach(reading => {
+                    html += `
+                        <div class="reading">
+                            <strong>${reading.value} ${reading.unit}</strong><br>
+                            ${new Date(reading.timestamp).toLocaleString()}<br>
+                            Source: ${reading.source}<br>
+                            Type: ${reading.readingType || 'unknown'}
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+            
+            clearDevices() {
+                this.devices.clear();
+                this.updateDevicesUI();
+                this.log('Cleared all devices', 'info');
+            }
+            
+            clearReadings() {
+                this.readings = [];
+                this.updateReadingsUI();
+                this.log('Cleared all readings', 'info');
+            }
+            
+            exportReadings() {
+                const dataStr = JSON.stringify(this.readings, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'glucose-readings.json';
+                link.click();
+                URL.revokeObjectURL(url);
+                this.log('Exported readings to JSON', 'success');
+            }
+            
+            clearLogs() {
+                document.getElementById('logs-container').innerHTML = '';
+                this.log('Logs cleared', 'info');
+            }
+            
+            isDebugMode() {
+                return document.getElementById('debug-mode').checked;
+            }
+            
+            log(message, type = 'info') {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-${type}`;
+                logEntry.textContent = `[${timestamp}] ${message}`;
+                
+                const container = document.getElementById('logs-container');
+                container.appendChild(logEntry);
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        
+        // Initialize the application
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new SimpleBluetoothTest();
+        });
+    </script>
+</body>
+</html>

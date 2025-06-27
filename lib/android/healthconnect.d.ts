@@ -2,7 +2,7 @@
  * Android Health Connect implementation for GlucoSync Bridge
  * Includes support for LibreLink data and xDrip+ Inter-App streaming
  */
-import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, PlatformBridge, GlucoseStreamOptions } from "../types";
+import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, PlatformBridge, GlucoseStreamOptions, BluetoothGlucoseMeter, BluetoothScanOptions, BluetoothConnectionOptions } from "../types";
 export declare class AndroidHealthConnectBridge implements PlatformBridge {
     private options;
     private initialized;
@@ -73,4 +73,10 @@ export declare class AndroidHealthConnectBridge implements PlatformBridge {
      * Poll Health Connect for new glucose readings
      */
     private pollHealthConnectForNewReadings;
+    scanForBluetoothDevices?(options: BluetoothScanOptions): Promise<BluetoothGlucoseMeter[]>;
+    connectToBluetoothDevice?(deviceId: string, options: BluetoothConnectionOptions): Promise<boolean>;
+    disconnectBluetoothDevice?(deviceId: string): Promise<boolean>;
+    syncBluetoothDevice?(deviceId: string): Promise<GlucoseReading[]>;
+    getConnectedBluetoothDevices?(): Promise<BluetoothGlucoseMeter[]>;
+    isBluetoothSupported?(): boolean;
 }

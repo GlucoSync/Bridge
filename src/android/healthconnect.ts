@@ -28,6 +28,9 @@ import {
   PlatformBridge,
   GlucoseStreamOptions,
   GlucoseStreamCallback,
+  BluetoothGlucoseMeter,
+  BluetoothScanOptions,
+  BluetoothConnectionOptions,
 } from "../types";
 import { convertDate, formatISODate } from "../utils/date";
 import { convertGlucoseValue } from "../utils/units";
@@ -560,5 +563,48 @@ export class AndroidHealthConnectBridge implements PlatformBridge {
     } catch (error: any) {
       throw new Error(`Failed to poll Health Connect: ${error.message}`);
     }
+  }
+
+  // Bluetooth methods (delegate to main bridge Bluetooth manager)
+  // These are implemented in the main GlucoseSyncBridge class
+
+  async scanForBluetoothDevices?(
+    options: BluetoothScanOptions
+  ): Promise<BluetoothGlucoseMeter[]> {
+    throw new Error(
+      "Bluetooth scanning should be handled by the main GlucoseSyncBridge instance"
+    );
+  }
+
+  async connectToBluetoothDevice?(
+    deviceId: string,
+    options: BluetoothConnectionOptions
+  ): Promise<boolean> {
+    throw new Error(
+      "Bluetooth connection should be handled by the main GlucoseSyncBridge instance"
+    );
+  }
+
+  async disconnectBluetoothDevice?(deviceId: string): Promise<boolean> {
+    throw new Error(
+      "Bluetooth disconnection should be handled by the main GlucoseSyncBridge instance"
+    );
+  }
+
+  async syncBluetoothDevice?(deviceId: string): Promise<GlucoseReading[]> {
+    throw new Error(
+      "Bluetooth sync should be handled by the main GlucoseSyncBridge instance"
+    );
+  }
+
+  async getConnectedBluetoothDevices?(): Promise<BluetoothGlucoseMeter[]> {
+    throw new Error(
+      "Bluetooth device listing should be handled by the main GlucoseSyncBridge instance"
+    );
+  }
+
+  isBluetoothSupported?(): boolean {
+    // Bluetooth support is available on Android, but handled by main bridge
+    return true;
   }
 }

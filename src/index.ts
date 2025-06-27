@@ -17,10 +17,15 @@ import {
   GlucoseUnit,
   AuthorizationStatus,
   GlucoseStreamOptions,
+  BluetoothGlucoseMeter,
+  BluetoothScanOptions,
+  BluetoothConnectionOptions,
+  MockBluetoothOptions,
 } from "./types";
 import { isIOS, isAndroid } from "./platform";
 import { IOSHealthKitBridge } from "./ios/healthkit";
 import { AndroidHealthConnectBridge } from "./android/healthconnect";
+import { BluetoothGlucoseMeterManager } from "./bluetooth/glucose-meter";
 import {
   InvalidPlatformError,
   PermissionDeniedError,
@@ -36,15 +41,16 @@ import {
 export class GlucoseSyncBridge {
   private platform: "ios" | "android" | "unknown";
   private bridge: IOSHealthKitBridge | AndroidHealthConnectBridge | null = null;
+  private bluetoothManager: BluetoothGlucoseMeterManager | null = null;
   private initialized = false;
   private options: GlucoseSyncOptions;
 
   /**
    * Creates a new instance of the GlucoseSyncBridge
    *
-   * @param options Configuration options
+   * @param options Configuration options including Bluetooth mock options
    */
-  constructor(options: GlucoseSyncOptions = {}) {
+  constructor(options: GlucoseSyncOptions & MockBluetoothOptions = {}) {
     this.options = {
       defaultUnit: GlucoseUnit.MGDL,
       autoInitialize: true,
@@ -62,6 +68,9 @@ export class GlucoseSyncBridge {
       this.platform = "unknown";
       this.bridge = null;
     }
+
+    // Initialize Bluetooth manager (works on all platforms with proper fallbacks)
+    this.bluetoothManager = new BluetoothGlucoseMeterManager(options);
 
     // Auto-initialize if requested
     if (this.options.autoInitialize) {
@@ -178,6 +187,94 @@ export class GlucoseSyncBridge {
     }
 
     return await this.bridge!.stopGlucoseStream();
+  }
+
+  // Bluetooth Glucose Meter Methods
+
+  /**
+   * Check if Bluetooth glucose meter support is available
+   *
+   * @returns True if Bluetooth is supported, false otherwise
+   */
+  isBluetoothSupported(): boolean {
+    return this.bluetoothManager
+      ? this.bluetoothManager.isBluetoothSupported()
+      : false;
+  }
+
+  /**
+   * Scan for available Bluetooth glucose meters
+   *
+   * @param options Scanning configuration options
+   * @returns Promise that resolves to an array of discovered devices
+   */
+  async scanForBluetoothDevices(
+    options: BluetoothScanOptions = {}
+  ): Promise<BluetoothGlucoseMeter[]> {
+    if (!this.bluetoothManager) {
+      throw new Error("Bluetooth manager not initialized");
+    }
+
+    return await this.bluetoothManager.scanForDevices(options);
+  }
+
+  /**
+   * Connect to a specific Bluetooth glucose meter
+   *
+   * @param deviceId The ID of the device to connect to
+   * @param options Connection configuration options
+   * @returns Promise that resolves when connection is established
+   */
+  async connectToBluetoothDevice(
+    deviceId: string,
+    options: BluetoothConnectionOptions = {}
+  ): Promise<boolean> {
+    if (!this.bluetoothManager) {
+      throw new Error("Bluetooth manager not initialized");
+    }
+
+    return await this.bluetoothManager.connectToDevice(deviceId, options);
+  }
+
+  /**
+   * Disconnect from a Bluetooth glucose meter
+   *
+   * @param deviceId The ID of the device to disconnect from
+   * @returns Promise that resolves when disconnection is complete
+   */
+  async disconnectBluetoothDevice(deviceId: string): Promise<boolean> {
+    if (!this.bluetoothManager) {
+      throw new Error("Bluetooth manager not initialized");
+    }
+
+    return await this.bluetoothManager.disconnectDevice(deviceId);
+  }
+
+  /**
+   * Sync glucose readings from a connected Bluetooth device
+   *
+   * @param deviceId The ID of the device to sync
+   * @returns Promise that resolves to an array of glucose readings
+   */
+  async syncBluetoothDevice(deviceId: string): Promise<GlucoseReading[]> {
+    if (!this.bluetoothManager) {
+      throw new Error("Bluetooth manager not initialized");
+    }
+
+    return await this.bluetoothManager.syncDevice(deviceId);
+  }
+
+  /**
+   * Get list of currently connected Bluetooth devices
+   *
+   * @returns Promise that resolves to an array of connected devices
+   */
+  async getConnectedBluetoothDevices(): Promise<BluetoothGlucoseMeter[]> {
+    if (!this.bluetoothManager) {
+      throw new Error("Bluetooth manager not initialized");
+    }
+
+    return await this.bluetoothManager.getConnectedDevices();
   }
 
   /**

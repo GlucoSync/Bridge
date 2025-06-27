@@ -8,7 +8,7 @@
  * @author Afonso Pereira
  * @license Proprietary
  */
-import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, GlucoseStreamOptions } from "./types";
+import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationStatus, GlucoseStreamOptions, BluetoothGlucoseMeter, BluetoothScanOptions, BluetoothConnectionOptions, MockBluetoothOptions } from "./types";
 /**
  * GlucoseSyncBridge - Main class for interfacing with health platforms
  *
@@ -18,14 +18,15 @@ import { GlucoseReading, GlucoseSyncOptions, GlucoseFetchOptions, AuthorizationS
 export declare class GlucoseSyncBridge {
     private platform;
     private bridge;
+    private bluetoothManager;
     private initialized;
     private options;
     /**
      * Creates a new instance of the GlucoseSyncBridge
      *
-     * @param options Configuration options
+     * @param options Configuration options including Bluetooth mock options
      */
-    constructor(options?: GlucoseSyncOptions);
+    constructor(options?: GlucoseSyncOptions & MockBluetoothOptions);
     /**
      * Initializes the platform-specific bridge
      * Must be called before any other methods if autoInitialize is false
@@ -77,6 +78,47 @@ export declare class GlucoseSyncBridge {
      * @returns Promise that resolves when streaming stops successfully
      */
     stopGlucoseStream(): Promise<boolean>;
+    /**
+     * Check if Bluetooth glucose meter support is available
+     *
+     * @returns True if Bluetooth is supported, false otherwise
+     */
+    isBluetoothSupported(): boolean;
+    /**
+     * Scan for available Bluetooth glucose meters
+     *
+     * @param options Scanning configuration options
+     * @returns Promise that resolves to an array of discovered devices
+     */
+    scanForBluetoothDevices(options?: BluetoothScanOptions): Promise<BluetoothGlucoseMeter[]>;
+    /**
+     * Connect to a specific Bluetooth glucose meter
+     *
+     * @param deviceId The ID of the device to connect to
+     * @param options Connection configuration options
+     * @returns Promise that resolves when connection is established
+     */
+    connectToBluetoothDevice(deviceId: string, options?: BluetoothConnectionOptions): Promise<boolean>;
+    /**
+     * Disconnect from a Bluetooth glucose meter
+     *
+     * @param deviceId The ID of the device to disconnect from
+     * @returns Promise that resolves when disconnection is complete
+     */
+    disconnectBluetoothDevice(deviceId: string): Promise<boolean>;
+    /**
+     * Sync glucose readings from a connected Bluetooth device
+     *
+     * @param deviceId The ID of the device to sync
+     * @returns Promise that resolves to an array of glucose readings
+     */
+    syncBluetoothDevice(deviceId: string): Promise<GlucoseReading[]>;
+    /**
+     * Get list of currently connected Bluetooth devices
+     *
+     * @returns Promise that resolves to an array of connected devices
+     */
+    getConnectedBluetoothDevices(): Promise<BluetoothGlucoseMeter[]>;
     /**
      * Gets platform name
      *

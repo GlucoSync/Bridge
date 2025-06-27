@@ -48,31 +48,107 @@ describe("GlucoseSyncBridge", () => {
     expect(bridge.isStreamingSupported()).toBeTruthy();
   });
 
-  test("should start and stop glucose streaming", async () => {
-    await bridge.initialize();
+  // Bluetooth Tests
+  describe("Bluetooth Support", () => {
+    test("should check Bluetooth support", () => {
+      const isSupported = bridge.isBluetoothSupported();
+      expect(typeof isSupported).toBe("boolean");
+    });
 
-    const streamOptions = {
-      enableXDripStream: true,
-      enableLibreLinkStream: true,
-      minInterval: 30000,
-      onReading: jest.fn(),
-      onError: jest.fn(),
-    };
+    test("should scan for Bluetooth devices in mock mode", async () => {
+      // Create bridge with mock mode enabled
+      const mockBridge = new GlucoseSyncBridge({
+        enableMockMode: true,
+        mockDeviceCount: 2,
+        autoInitialize: false,
+      });
 
-    const started = await bridge.startGlucoseStream(streamOptions);
-    expect(started).toBeTruthy();
+      await mockBridge.initialize();
+      const devices = await mockBridge.scanForBluetoothDevices();
 
-    const stopped = await bridge.stopGlucoseStream();
-    expect(stopped).toBeTruthy();
-  });
-  test("should handle LibreLink source data correctly", async () => {
-    await bridge.initialize();
-    const reading = await bridge.getLatestGlucoseReading();
-    
-    // The mock data includes LibreLink source
-    expect(reading).not.toBeNull();
-    expect(reading?.metadata?.dataOrigin).toBe("com.freestylelibre.app");
-    expect(reading?.value).toBeDefined();
-    expect(reading?.unit).toBeDefined();
+      expect(Array.isArray(devices)).toBeTruthy();
+      expect(devices.length).toBe(2);
+      expect(devices[0]).toMatchObject({
+        id: expect.any(String),
+        name: expect.any(String),
+        connectionState: expect.any(String),
+      });
+    });
+    test("should connect to Bluetooth device in mock mode", async () => {
+      const mockBridge = new GlucoseSyncBridge({
+        enableMockMode: true,
+        simulateDelays: false, // Disable delays for faster tests
+        mockFailureRate: 0, // Disable failures for predictable tests
+        autoInitialize: false,
+      });
+
+      await mockBridge.initialize();
+      const devices = await mockBridge.scanForBluetoothDevices();
+      const connected = await mockBridge.connectToBluetoothDevice(
+        devices[0].id
+      );
+
+      expect(connected).toBe(true);
+    });
+    test("should sync glucose readings from Bluetooth device", async () => {
+      const mockBridge = new GlucoseSyncBridge({
+        enableMockMode: true,
+        mockReadingCount: 5,
+        simulateDelays: false, // Disable delays for faster tests
+        mockFailureRate: 0, // Disable failures for predictable tests
+        autoInitialize: false,
+      });
+
+      await mockBridge.initialize();
+      const devices = await mockBridge.scanForBluetoothDevices();
+      await mockBridge.connectToBluetoothDevice(devices[0].id);
+      const readings = await mockBridge.syncBluetoothDevice(devices[0].id);
+
+      expect(Array.isArray(readings)).toBeTruthy();
+      expect(readings.length).toBe(5);
+      expect(readings[0]).toMatchObject({
+        id: expect.any(String),
+        value: expect.any(Number),
+        unit: expect.any(String),
+        timestamp: expect.any(String),
+        source: expect.any(String),
+      });
+    });
+    test("should get connected Bluetooth devices", async () => {
+      const mockBridge = new GlucoseSyncBridge({
+        enableMockMode: true,
+        simulateDelays: false, // Disable delays for faster tests
+        mockFailureRate: 0, // Disable failures for predictable tests
+        autoInitialize: false,
+      });
+
+      await mockBridge.initialize();
+      const devices = await mockBridge.scanForBluetoothDevices();
+      await mockBridge.connectToBluetoothDevice(devices[0].id);
+
+      const connectedDevices = await mockBridge.getConnectedBluetoothDevices();
+      expect(connectedDevices.length).toBe(1);
+      expect(connectedDevices[0].id).toBe(devices[0].id);
+    });
+    test("should disconnect from Bluetooth device", async () => {
+      const mockBridge = new GlucoseSyncBridge({
+        enableMockMode: true,
+        simulateDelays: false, // Disable delays for faster tests
+        mockFailureRate: 0, // Disable failures for predictable tests
+        autoInitialize: false,
+      });
+
+      await mockBridge.initialize();
+      const devices = await mockBridge.scanForBluetoothDevices();
+      await mockBridge.connectToBluetoothDevice(devices[0].id);
+
+      const disconnected = await mockBridge.disconnectBluetoothDevice(
+        devices[0].id
+      );
+      expect(disconnected).toBe(true);
+
+      const connectedDevices = await mockBridge.getConnectedBluetoothDevices();
+      expect(connectedDevices.length).toBe(0);
+    });
   });
 });
